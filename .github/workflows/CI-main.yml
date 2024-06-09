@@ -22,8 +22,8 @@ jobs:
         tokenPrefix: '{__'
         tokenSuffix: '__}'
         files: '["**/appsettings.json"]'
-      env:
-        CDN: https://somecdn.com/...  
+#     env:
+#       CDN: https://somecdn.com/...  
         
     - name: Run build with Docker Compose
       run: |
