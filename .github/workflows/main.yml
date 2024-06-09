@@ -1,0 +1,59 @@
+name: Docker Image CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: deployment
+  cancel-in-progress: true
+jobs:
+
+  build:
+
+    runs-on: ubuntu-20.04
+    steps: 
+    - name: Checkout 
+      uses: actions/checkout@v2 # Required to mount the Github Workspace to a volume
+    - uses: cschleiden/replace-tokens@v1
+      with:
+        tokenPrefix: '{__'
+        tokenSuffix: '__}'
+        files: '["**/appsettings.json"]'
+      env:
+        CDN: https://somecdn.com/...  
+        
+    - name: Run build with Docker Compose
+      run: |
+        docker-compose -f ./docker-compose.ci.build.yml run ci-build  # Assuming ci-build service does the build
+    
+    - name: Login to Docker Hub (Optional)
+      run: |
+        echo "Login to Docker Hub (Optional)"
+        docker login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_PASSWORD }}  # Assuming secrets are defined
+
+    - name: 'Login via Azure CLI'
+      uses: azure/login@v1
+      with:
+            creds: ${{ secrets.AZURE_CREDENTIALS }}
+  
+    - name: 'Build and push image'
+      uses: azure/docker-login@v1
+      with:
+        login-server: ${{ secrets.ACR_LOGIN_SERVER }}.azurecr.io
+        username: your-user-name
+        password: ${{ secrets.ACR_PASSWORD }}
+      env:
+        DOCKER_BUILD_SOURCE: ''  # Set environment variable for build context
+    - run: |
+        docker-compose -f ./docker-compose.yml build
+        docker tag myhealth.web ${{ secrets.ACR_LOGIN_SERVER }}.azurecr.io/myhealth.web
+
+      env:
+        DOCKER_BUILD_SOURCE: ''  # Set environment variable for build context
+    - run: |
+        /usr/bin/docker push ${{ secrets.ACR_LOGIN_SERVER }}.azurecr.io/myhealth.web
+
+    
